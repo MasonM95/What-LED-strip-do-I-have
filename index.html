@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What LED strip do I have?</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Figtree:wght@400;600&display=swap">
+<style>
+:root{--bg:#eef1f6;--card:#fff;--ink:#141a2b;--mute:#566077;--line:#d5dae6;--a:#0a7cff;--warn:#fff3d6;--warnink:#6b4a00;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d111c;--card:#161c2c;--ink:#e8ecf6;--mute:#9aa5c0;--line:#2a3350;--a:#4da3ff;--warn:#3a2f10;--warnink:#f1d58a}}
+:root[data-theme="dark"]{--bg:#0d111c;--card:#161c2c;--ink:#e8ecf6;--mute:#9aa5c0;--line:#2a3350;--a:#4da3ff;--warn:#3a2f10;--warnink:#f1d58a}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 Figtree,system-ui,sans-serif}
+main{max-width:640px;margin:0 auto;padding:24px 18px 48px}
+h1,h2,h3{font-family:"Bricolage Grotesque",Figtree,system-ui,sans-serif;line-height:1.1;margin:0}
+h1{font-size:2.2rem;font-weight:800;letter-spacing:-.02em}
+.sub{color:var(--mute);margin:8px 0 22px}
+.strip{display:flex;gap:6px;margin:0 0 22px}
+.strip i{flex:1;height:10px;border-radius:5px;background:var(--line);transition:background .3s,box-shadow .3s}
+.strip i.on{background:var(--c);box-shadow:0 0 10px var(--c)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+h2{font-size:1.5rem;font-weight:700;margin-bottom:6px}
+.help{color:var(--mute);margin:0 0 16px}
+.opts{display:grid;gap:10px}
+.opts.grid{grid-template-columns:repeat(auto-fit,minmax(88px,1fr))}
+button{font:inherit;color:inherit;cursor:pointer}
+.opt{background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:14px;text-align:left;font-weight:600}
+.opt:hover{border-color:var(--a)}
+.opt small{display:block;font-weight:400;color:var(--mute)}
+.opt.n{text-align:center;font-family:"Bricolage Grotesque",sans-serif;font-size:1.5rem;padding:12px 6px}
+.opt.n small{font:400 .8rem Figtree,sans-serif}
+button:focus-visible{outline:3px solid var(--a);outline-offset:2px}
+.pads{display:block;margin:0 auto 12px;max-width:100%}
+.link{background:none;border:0;color:var(--a);padding:8px 0;font-weight:600;text-decoration:underline}
+.row{display:flex;justify-content:space-between;gap:12px;margin-top:14px}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.tags span{background:var(--bg);border:1px solid var(--line);border-radius:99px;padding:3px 12px;font-size:.9rem}
+.tags span.c3{border-color:#2fd37a}.tags span.c2{border-color:var(--a)}.tags span.c1{border-color:#ff9a1f}
+h3{font-size:1.05rem;margin:20px 0 6px}
+ul{margin:0;padding-left:1.2em}li{margin:4px 0}
+.warn{background:var(--warn);color:var(--warnink);border-radius:10px;padding:12px 14px;margin-top:14px}
+.mrow{margin:12px 0 0}.meter{height:10px;border-radius:5px;background:var(--line);overflow:hidden}.meter i{display:block;height:100%}.mrow small{color:var(--mute)}.cta{background:var(--a);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:600}
+.ghost{background:none;border:2px solid var(--line);border-radius:10px;padding:10px 16px;font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <h1>What LED strip do I have?</h1>
+  <p class="sub">Answer a few questions by looking at your strip. No tools or tech knowledge needed. "Not sure" is always fine.</p>
+  <div class="strip" id="strip" aria-hidden="true"></div>
+  <section class="card" id="card" aria-live="polite"></section>
+</main>
+<script>
+var COLS=['#ff3b6b','#ff9a1f','#2fd37a','#0a9bff'];
+var $=function(id){return document.getElementById(id)};
+var S,H=[];
+function reset(){S={pins:null,kind:null,conf:2,conn:null,volt:null,vsrc:'',white:null,lab:null,chip:null,ctl:null,hidden:0,ev:[],d:{}};H=[]}
+function ev(t){S.ev.push(t)}
+function setV(v,src){S.volt=v;S.vsrc=src;ev(src)}
+
+var CH={
+ WS2812B:{n:'WS2812B (often sold as "NeoPixel")',v:'5V',w:'Each LED has its own chip built in, so every single LED can be a different colour. This is the most common pixel strip.',c:['WLED on an ESP32 (easiest for beginners)','Arduino or Raspberry Pi with the FastLED library','Pixel controllers that list WS2812B'],p:'At full white a 60 LED/metre strip uses roughly 18W per metre, so feed power in at both ends on long runs.'},
+ SK6812:{n:'SK6812 RGBW',v:'5V',w:'Like a WS2812B, but each LED also has a dedicated white, so whites look clean instead of tinted. Each LED is still individually controlled.',c:['WLED (set the strip to RGBW)','Controllers that list SK6812 or RGBW pixels'],p:'Plain WS2812B settings will give wrong colours. Choose the RGBW option.'},
+ WS2811:{n:'WS2811',v:'12V',w:'A small separate chip controls a group of 3 LEDs (12V) or 6 LEDs (24V), so effects look chunkier than a WS2812B. Each group can be its own colour.',c:['WLED on an ESP32 plus a 12V supply (level shifter helps)','Pixel controllers that list WS2811'],p:'Do not plug it into a 5V pixel setup. The data wire is 5V-style but the power must match the strip.'},
+ WS2813:{n:'WS2813',v:'5V',w:'Works like a WS2812B, but with a backup data line (BI) so one dead LED does not black out the rest of the strip.',c:['Most WS2812B controllers, including WLED','Arduino or Raspberry Pi with FastLED'],p:'Treat it like a WS2812B for power. Same long-run cautions apply.'},
+ WS2815:{n:'WS2815',v:'12V',w:'A 12V pixel strip with a backup data line. 12V draws less current, so longer runs stay brighter and need less power injection.',c:['WLED on an ESP32 plus a 12V supply','Pixel controllers that list WS2815'],p:'Needs 12V. Be sure the controller only sends data, not 5V power, into the strip.'},
+ APA102:{n:'APA102 or SK9822 ("DotStar")',v:'5V',w:'Each LED is individually controlled using a data wire and a separate clock wire. It is very fast and smooth, and looks good on camera.',c:['WLED (supports clock + data)','Arduino or Raspberry Pi with FastLED or Adafruit libraries'],p:'Not compatible with 3-pin WS2812B-style controllers. It must list APA102 or SK9822.'}
+};
+var TY={
+ single:{t:'Single-colour strip',tag:'Standard (not addressable)',w:'Every LED shows the same one colour, such as white, warm white or red. The two connections are plus (+) and minus (\u2212).',c:['Turn it on and off','Dim it with a dimmer','Cut it at the marked lines'],n:['A power supply that matches the voltage','A single-colour dimmer, or just a switch'],x:'Polarity matters: plus to plus, minus to minus.'},
+ rgb:{t:'RGB colour strip (4-pin)',tag:'Standard (not addressable)',w:'Has red, green and blue channels plus a shared plus (+) wire. The whole strip shows one colour at a time, but it can be any colour.',c:['Any colour, with fades and flash modes from a remote or app','Cut at marked lines'],n:['An RGB (4-pin) controller for your voltage','A matching power supply'],x:'Do not plug this into a controller made for "pixel" or "addressable" strips.'},
+ rgbw:{t:'RGBW strip (5-pin)',tag:'Standard (not addressable)',w:'Red, green, blue and a separate white LED. The whole strip shows one colour at a time.',c:['Any colour plus a cleaner white','Colour and white at the same time'],n:['An RGBW (5-pin) controller','A matching power supply'],x:'A plain RGB controller cannot drive the white LEDs.'},
+ rgbcct:{t:'RGB + CCT strip (6-pin)',tag:'Standard (not addressable)',w:'Red, green, blue, plus separate warm white and cool white LEDs.',c:['Any colour','White from cosy to daylight','Mix colour and white'],n:['An RGBCCT (5-channel) controller','A matching power supply'],x:'RGB, RGBW and dual-white controllers will not fit.'},
+ cct:{t:'Dual-white strip (3-pin)',tag:'Standard (not addressable)',w:'Warm white and cool white LEDs sharing a plus (+) wire. No colours, but the white can be adjusted.',c:['Slide between warm and cool white','Dim the brightness'],n:['A dual-white (CCT) controller or dimmer','A matching power supply'],x:'It looks like a 3-pin pixel strip, but a pixel controller will not run it.'}
+};
+var VT={'5V':'5V is low and safe, and is often powered from USB or a phone-style charger.','12V':'12V is the most common for home lighting. Use a 12V DC power supply.','24V':'24V suits long runs. Use a 24V DC supply. A 12V one gives a dim strip.'};
+var CN={usb:'USB-A means 5V. Any USB charger or power bank works, within its amp rating. Many strips draw 2 A or more.',usbc:'USB-C is usually 5V for LED strips, but USB-C chargers can negotiate higher voltages (PD). Use a plain 5V charger, not a fast-charge one, unless you know the strip is rated for it.',barrel:'A DC barrel jack (often 5.5 × 2.1 mm, sometimes 5.5 × 2.5 mm) usually means 12V, but 5V and 24V adapters use the same plug. Always read the adapter label.',jst:'A small white plug (often called JST-SM) is only a connector. It does not tell you the voltage. Matching pairs let you extend the strip without soldering.',clip:'A hinged clip connector grips the copper pads. Match the strip width (often 8mm or 10mm) and the pin count when buying more.',box:'There is a box in the line. A chip can live in the box instead of on the strip, so a chip name printed on the strip may not tell the whole story. Check the box label, and any extra chip or board in the line.',bare:'Bare pads mean you will need to solder, or buy clip-on connectors that match your pad count and strip width.'};
+
+function opt(a,b,f,s){return{a:a,b:b,f:f,s:s}}
+function num(a,b,f){return{a:a,b:b,f:f,n:1}}
+var Q=[
+{id:'pins',when:function(){return S.pins==null},t:'How many metal pads or wires are at the end?',h:'Look at the cut end of the strip, or count the wires or slots in the plug. If the pads are sealed in a case, choose Hidden.',o:[2,3,4,5,6].map(function(n){return num(n,'pads',function(){S.pins=n;ev(n+' pads or wires')})}).concat([num('Hidden','Sealed in a case',function(){S.pins=-1}),num('?','Not sure',function(){S.pins=0})])},
+{id:'wires',when:function(){return S.pins==-1},t:'How many wires come out of the strip or case?',h:'Count the wires in the cable, or the pins in the plug. We will mark the answer as less certain because the pads are hidden.',o:[2,3,4,5,6].map(function(n){return num(n,'wires',function(){S.pins=n;S.hidden=1;ev(n+' wires seen, pads hidden in a case')})}).concat([num('?','Cannot tell',function(){S.pins=0})])},
+{id:'kind',pads:1,when:function(){return S.pins==3||S.pins==4},t:'Which of these fits your strip best?',h:'Check the strip itself. Do not judge only by your current controller: pixel strips are often sold with basic controllers or locked apps that only show one colour or preset effects. Arrows and markings are better clues.',o:[
+ opt('Small arrows are printed between the LEDs','The arrows point along the strip',function(){S.kind='pix';ev('Arrows on the strip')}),
+ opt('It can show different colours in different places','Rainbows or colours that chase along it, or it was sold as "pixel" or "dream colour"',function(){S.kind='pix';ev('Different colours at once')}),
+ opt('Only warm white and cool white','Two kinds of LED alternate, one yellowish, one bluish',function(){S.kind='cct';ev('Warm and cool white only')},function(){return S.pins==3}),
+ opt('The whole strip is one colour at a time','No arrows and no effects along the strip',function(){S.kind='rgb';ev('Whole strip one colour')},function(){return S.pins==4}),
+ opt("I'm not sure","We'll make a best guess",function(){S.kind=S.pins==3?'pix':'rgb';S.conf=1;ev('Could not tell pixel from standard')})]},
+{id:'conn',when:function(){return S.pins>0},t:'What is at the end of the strip?',h:'Whatever the strip plugs into or comes with. Pick the closest.',o:[
+ opt('USB-A plug','The classic flat rectangular USB plug',function(){S.conn='usb';setV('5V','USB-A plug, so 5V')}),opt('USB-C plug','The small oval, reversible plug',function(){S.conn='usbc';setV('5V','USB-C plug, so most likely 5V')}),
+ opt('DC barrel jack','Round plug, commonly 5.5 × 2.1 mm, from a wall adapter',function(){S.conn='barrel';ev('DC barrel jack')}),opt('AC mains plug','The strip itself plugs straight into a wall socket',function(){S.conn='ac';setV('AC','AC mains plug')}),
+ opt('JST-SM style plug','Small white plastic plug, 2 to 4 pins',function(){S.conn='jst';ev('Small white plug')}),
+ opt('Solderless clip connector','Hinged clip over the copper pads, 8 mm or 10 mm wide',function(){S.conn='clip';ev('Clip connector')}),
+ opt('A small box in the line','Controller, remote receiver or driver',function(){S.conn='box';ev('Box in the line')}),
+ opt('Bare pads or loose wires','No plug at all',function(){S.conn='bare';ev('No plug')})]},
+{id:'adapter',when:function(){return(S.conn=='barrel'||S.conn=='box')&&!S.volt},t:'What does the power adapter label say?',h:'Find the small print saying Output, then the number followed by V (or "DC"). If there is a box with its own plug, check its label too.',o:[
+ num('5V','',function(){setV('5V','Adapter label says 5V')}),num('12V','',function(){setV('12V','Adapter label says 12V')}),num('24V','',function(){setV('24V','Adapter label says 24V')}),num('?',"Can't read",function(){})]},
+{id:'print',when:function(){return S.pins>0&&!S.volt},t:'Is a voltage printed on the strip or its label?',h:'Look along the strip edge, on the reel or sticker, or on the box. It reads like DC12V or 5V.',o:[num('5V','',function(){setV('5V','Voltage printed on the strip: 5V')}),num('12V','',function(){setV('12V','Voltage printed on the strip: 12V')}),num('24V','',function(){setV('24V','Voltage printed on the strip: 24V')}),num('None','Not found',function(){})]},
+{id:'cut',when:function(){return S.pins>0&&!S.volt},t:'How many LEDs are between the cut marks?',h:'Find the cut line (often a scissors symbol or a row of copper dots). Count the LEDs from one cut line to the next. This is a good hint for 5050-size LEDs, not a guarantee.',o:[
+ num('1','LED',function(){setV('5V','Cut marks every 1 LED, which hints at 5V')}),num('3','LEDs',function(){setV('12V','Cut marks every 3 LEDs, which hints at 12V')}),num('6','LEDs',function(){setV('24V','Cut marks every 6 LEDs, which hints at 24V')}),num('?','Other / not sure',function(){})]},
+{id:'ctl',when:function(){return S.pins>0},t:'How do you control it today?',h:'This tells us what you already have, and whether a locked controller could be hiding features.',o:[opt('Small IR remote','24 or 44 key remote',function(){S.ctl='ir';ev('Controlled with an IR remote')}),opt('Phone app over Bluetooth','',function(){S.ctl='ble';ev('Controlled with a Bluetooth app')}),opt('Phone app over Wi-Fi','Such as Smart Life, Tuya or Govee',function(){S.ctl='wifi';ev('Controlled with a Wi-Fi app')}),opt('A switch only','Just on and off',function(){S.ctl='switch'}),opt('Nothing yet','Bare strip',function(){S.ctl='none'})]},
+{id:'white',when:function(){return S.kind=='pix'&&S.pins==3&&S.volt!='12V'&&S.volt!='24V'},t:'Does it say RGBW, or mention a white LED?',h:'Check the strip, the box or the listing. Look for RGBW, "warm white", "natural white" or "RGBWW".',o:[
+ opt('Yes','Extra white mentioned',function(){S.white='y';ev('RGBW mentioned')}),opt('No or not sure','Treated as colour-only',function(){S.white='n'})]},
+{id:'lab',pads:1,when:function(){return S.kind=='pix'&&S.pins==4},t:'Which letters are printed next to the pads?',h:'Tiny text on the strip near the end. Pick the closest match.',o:[
+ opt('DI and BI','Two data connections, like 5V DI BI GND',function(){S.lab='bi';ev('Labels DI + BI')}),opt('DI and CI (or CLK, SCK, C)','A data and a clock connection',function(){S.lab='ci';ev('Labels data + clock')}),opt("I can't read them",'We will use voltage to decide',function(){S.lab=''})]},
+{id:'chip',when:function(){return S.kind=='pix'},t:'Do you know the chip name?',h:'Optional. It might be on the strip, the box, the listing, or a small circuit board in the line. If not, choose "No idea" and we will work it out from your answers.',o:[
+ opt('WS2812B','',function(){S.chip='WS2812B'},function(){return S.pins==3}),opt('SK6812','',function(){S.chip='SK6812'},function(){return S.pins==3}),opt('WS2811','',function(){S.chip='WS2811'},function(){return S.pins==3}),
+ opt('WS2813','',function(){S.chip='WS2813'},function(){return S.pins==4}),opt('WS2815','',function(){S.chip='WS2815'},function(){return S.pins==4}),opt('APA102 or SK9822','',function(){S.chip='APA102'},function(){return S.pins==4}),
+ opt('No idea','Work it out for me',function(){})]}
+];
+
+function pads(n){var w=n*44+16,o='<svg class="pads" viewBox="0 0 '+w+' 70" width="'+Math.min(w,300)+'" role="img" aria-label="'+n+' pads"><rect x="2" y="8" width="'+(w-4)+'" height="54" rx="10" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="2"/>';
+ for(var i=0;i<n;i++)o+='<rect x="'+(14+i*44)+'" y="20" width="30" height="30" rx="5" fill="'+COLS[i%4]+'"/>';return o+'</svg>'}
+function dots(on){$('strip').innerHTML=[0,1,2,3,4,5,6,7].map(function(i){return'<i class="'+(i<on?'on':'')+'" style="--c:'+COLS[i%4]+'"></i>'}).join('')}
+function render(){
+ var q=Q.filter(function(q){return !S.d[q.id]&&q.when()})[0],c=$('card');
+ if(!q||S.volt=='AC')return result();
+ dots(Object.keys(S.d).length+1);
+ var os=q.o.filter(function(o){return !o.s||o.s()}),big=os.every(function(o){return o.n}),h='<h2>'+q.t+'</h2><p class="help">'+q.h+'</p>';
+ if(q.pads)h+=pads(S.pins);
+ h+='<div class="opts'+(big?' grid':'')+'">'+os.map(function(o,i){return'<button class="opt'+(o.n?' n':'')+'" data-i="'+i+'">'+o.a+(o.b?'<small>'+o.b+'</small>':'')+'</button>'}).join('')+'</div>';
+ if(H.length)h+='<div class="row"><button class="link" id="back">Back</button></div>';
+ c.innerHTML=h;
+ c.querySelectorAll('[data-i]').forEach(function(b){b.onclick=function(){H.push(JSON.stringify(S));S.d[q.id]=1;os[+b.dataset.i].f();render()}});
+ var bk=$('back');if(bk)bk.onclick=function(){S=JSON.parse(H.pop());render()};
+}
+function list(a){return '<ul>'+a.map(function(x){return'<li>'+x+'</li>'}).join('')+'</ul>'}
+function result(){
+ var c=$('card'),p=S.pins,k=S.kind||{2:'single',5:'rgbw',6:'rgbcct'}[p],v=S.volt,vs=S.vsrc,T,name,tag,what,can,need,warn,alt='',conf;
+ dots(8);if(S.volt=='AC')return mains();
+ if(!p){c.innerHTML='<h2>Let\u2019s find the pads first</h2><p class="help">Look at the very end of the strip, or at the plug. Count the metal pads (or the wires going into the plug). Strips usually have 2, 3, 4, 5 or 6.</p><div class="row"><button class="cta" id="again">Try again</button></div>';$('again').onclick=function(){reset();render()};return}
+ var unc=(!v?1:0)+(S.conf==1?1:0)+(k=='pix'&&p==4&&!S.lab&&!S.chip?1:0);
+ if(k=='pix'){
+  var ch=S.chip;
+  if(!ch){
+   if(p==3)ch=S.white=='y'?'SK6812':(v=='12V'||v=='24V')?'WS2811':'WS2812B';
+   else if(S.lab=='ci')ch='APA102';
+   else if(S.lab=='bi')ch=v=='5V'?'WS2813':'WS2815';
+   else{ch=v=='12V'?'WS2815':'WS2813';alt='It could also be '+(v=='12V'?'another 12V pixel type':'an APA102 (data + clock) or a 12V WS2815')+'. Reading the letters next to the pads will settle it.'}
+   if(p==3&&!v)alt='If your strip turns out to be 12V, it is a WS2811 instead.';
+  }
+  T=CH[ch];name=T.n;tag='Addressable (pixel)';what=T.w;can=['Rainbows, chases, twinkles and other animations','Different colours in different spots at once'].concat(ch=='WS2811'?[]:['Every LED controlled separately']);
+  need=T.c.map(function(x){return'Works with: '+x});need.push('A power supply that matches the voltage');warn=T.p;
+  if(!v){v=T.v;vs='Typical for this chip. Confirm before powering'}
+  if(ch=='WS2811'&&v=='24V')what=what.replace('3 LEDs (12V) or ','').replace('6 LEDs (24V)','6 LEDs (24V)');
+  conf=S.chip?3:unc?1:2;
+ }else{T=TY[k];name=T.t;tag=T.tag;what=T.w;can=T.c;need=T.n;warn=T.x;conf=unc?1:2}
+ var sc=score();conf=sc>=88?3:sc>=68?2:1;var cl=['','Best guess','Very likely','Confirmed'][conf],h='<h2>'+name+'</h2><div class="tags"><span class="c'+conf+'">'+cl+'</span><span>'+p+' pads</span><span>'+tag+'</span><span>'+(v||'Voltage unknown')+'</span></div>'+meter(sc,conf);
+ h+='<h3>What you have</h3><p>'+what+'</p>'+(alt?'<p><b>Note:</b> '+alt+'</p>':'');
+ h+='<h3>What you can do</h3>'+list(can)+'<h3>What you\u2019ll need</h3>'+list(need);
+ h+='<h3>Voltage</h3><p>'+(v?(VT[v]||'')+(vs?' ('+vs+')':''):'We could not work out the voltage. Check the adapter label, a sticker on the strip or reel, or the original listing before powering it. A wrong voltage can burn out the strip.')+'</p>';
+ if(S.conn)h+='<h3>About your connector</h3><p>'+CN[S.conn]+'</p>';
+ if(warn)h+='<div class="warn"><b>Heads up:</b> '+warn+'</div>';
+ if(S.ev.length)h+='<h3>How we worked it out</h3>'+list(S.ev);
+ h+=more(k,v,p,typeof ch=='undefined'?'':ch,conf);if(conf<3&&k=='pix')h+='<div class="warn">Chip names are not always printed on the strip, or the chip may be in a separate unit. If you find one later, start over and pick it to get an exact match.</div>';
+ h+='<div class="row"><button class="ghost" id="again">Start over</button><button class="cta" id="copy">Copy summary</button></div>';
+ c.innerHTML=h;
+ $('again').onclick=function(){reset();render()};
+ $('copy').onclick=function(){var b=$('copy'),t='My LED strip: '+name+' ('+cl+'), '+p+' pads, '+(v||'voltage unknown')+'. '+what;
+  try{navigator.clipboard.writeText(t).then(function(){b.textContent='Copied'})}catch(e){b.textContent='Copy not available'}};
+}
+function score(){var s=55;if(S.conf!=1)s+=10;if(S.volt)s+=/label|Printed/.test(S.vsrc)?20:10;if(S.chip)s+=20;if(S.hidden)s-=15;if(S.kind=='pix'&&S.pins==4&&S.lab===''&&!S.chip)s-=8;return Math.max(15,Math.min(97,s))}
+function meter(sc,conf){var col=conf==3?'#2fd37a':conf==2?'#0a9bff':'#ff9a1f';return '<div class="mrow"><div class="meter" role="img" aria-label="Confidence '+sc+' percent"><i style="width:'+sc+'%;background:'+col+'"></i></div><small>Estimated confidence '+sc+'%. This is a rough estimate from your answers, not a measurement.</small></div>'}
+function mains(){$('card').innerHTML='<h2>Mains (AC) LED strip</h2><div class="tags"><span class="c2">Very likely</span><span>AC mains plug</span></div><p>A strip or rope that plugs straight into a wall socket runs on mains voltage. It is a different product from the low-voltage strips this tool is built for.</p><div class="warn"><b>Safety:</b> Do not cut it, rewire it, or connect it to a low-voltage controller, WLED or an ESP board. Only use a dimmer or smart plug that is rated for LED loads at its voltage. For colour effects or smart control, a 5V, 12V or 24V strip with its own power supply is a safer choice, and this tool can help you identify one.</div><div class="row"><button class="ghost" id="again">Start over</button></div>';$('again').onclick=function(){reset();render()}}
+var MK=['Small arrows (→) between the LEDs or near the ends mean a pixel strip. They point the way data flows.','Letters beside the pads or wires: DI, DO or DIN (data), CI or CLK (clock), BI (backup data), R G B W (colour channels), WW CW (warm and cool white).','A voltage print such as DC5V, DC12V or DC24V on the strip edge, reel or box.','LED size such as 5050 (square) or 2835 (small rectangle), which helps with power estimates.','A model number or label on the case or box. Search it online with the words WLED or LED controller.'];
+function more(k,v,p,ch,conf){var h='',pix=k=='pix',td=[];
+ if(!S.volt)td.push('Read the voltage: look for DC5V, DC12V or DC24V on the strip edge, reel or power adapter');
+ if(S.hidden)td.push('Check the case or box for a model number or markings, and search it online');
+ if(pix&&!S.chip)td.push('Find a chip name (WS2812B, WS2811, SK6812, WS2813, WS2815, APA102) on the strip, box or listing');
+ if(pix&&p==4&&!S.lab)td.push('Read the letters beside the four pads: DI + BI is a backup-data strip, DI + CI is a clock strip');
+ if(S.conf==1)td.push('Look for small arrows (→) between the LEDs, which mean a pixel strip');
+ if(td.length&&conf<3)h+='<h3>To be more sure</h3>'+list(td);
+ if(S.hidden||conf<2)h+='<h3>Markings worth looking for</h3>'+list(MK);
+ if(pix&&S.ctl&&S.ctl!='none')h+='<div class="warn"><b>Good news:</b> pixel strips are often sold with a basic controller that only shows one colour or preset effects, or is locked to an app. The strip can do much more. Swapping the controller for WLED or ESPHome, and keeping your strip and power supply, unlocks per-LED control.</div>';
+ return h+'<h3>What you could use</h3><ul>'+recs(k,v,p,ch).map(function(x){return'<li><b>'+x[0]+':</b> '+x[1]+'</li>'}).join('')+'</ul>'}
+function recs(k,v,p,ch){var pix=k=='pix',r=[],w=pix?'a 60 LED per metre pixel strip can draw about 18 W per metre at full white':'5050 colour strips use roughly 7 to 14 W per metre, simpler strips often less';
+ r.push(['Power supply','A regulated '+(v||'matching')+' DC supply. Add 20% headroom: watts = W per metre × length × 1.2. As a guide, '+w+'. Check the listing for the real figure.'+(v=='5V'?' For short runs, a USB-A or USB-C charger that supplies 5V at 2 A or more works, and one port can often power the controller too.':'')+(v=='24V'?' Check that any controller you pick is rated for 24V.':'')]);
+ if(pix){r.push(['WLED','Free firmware for an ESP32 or ESP8266 board, with a web page, phone app, 100+ effects and per-LED control. Works with Home Assistant, Alexa and Google Home. The easiest way to unlock a pixel strip.']);
+  r.push(['ESPHome','Flash an ESP32 with ESPHome and use its addressable light support ('+(ch=='APA102'?'the fastled_spi platform':'such as esp32_rmt_led_strip, neopixelbus or fastled_clockless')+') to manage the strip fully inside Home Assistant.']);
+  r.push(['Ready-made controller','A boxed pixel controller with an app or remote suits anyone who does not want to build. Check that it lists '+(ch||'your chip')+' and your voltage.'])}
+ else{if(k=='single')r.push(['Dimmer or relay','A PWM dimmer for brightness, or just a switch, relay or smart plug if you only need on and off.']);
+  r.push(['Ready-made controller','A Wi-Fi, Bluetooth or remote controller that matches '+p+' pads and your voltage.']);
+  r.push(['WLED or ESPHome','An ESP32 plus MOSFET driver boards can run this strip in WLED (PWM outputs) or in ESPHome as a '+{single:'monochromatic',rgb:'rgb',rgbw:'rgbw',rgbcct:'rgbww',cct:'cwww'}[k]+' light. The MOSFETs must be rated for your voltage and current.'])}
+ r.push(['Relays and switching','A relay (or MOSFET) on the DC side switches the strip off completely. '+(pix?'Pixel strips keep drawing a small standby current even when off, so a relay on the supply saves power. ':'A relay only gives on and off, not dimming. ')+'For mains, use a ready-made smart plug or a relay module rated for the load.']);
+ r.push(['Extras',pix?'A 1000 µF capacitor across power at the strip start, a 330 to 470 Ω resistor in the data line, a 3.3V to 5V level shifter when using an ESP32, a fuse on the supply, and power fed in at both ends of long strips.':'A fuse on the supply, wire thick enough for the current (long runs lose voltage), and an aluminium channel for bright strips.']);
+ return r}
+reset();render();
+</script>
+</body>
+</html>
