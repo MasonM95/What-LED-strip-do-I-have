@@ -57,7 +57,7 @@ ul{margin:0;padding-left:1.2em}li{margin:4px 0}
 var COLS=['#ff3b6b','#ff9a1f','#2fd37a','#0a9bff'];
 var $=function(id){return document.getElementById(id)};
 var S,H=[];
-function reset(){S={pins:null,kind:null,conf:2,conn:null,volt:null,vsrc:'',white:null,lab:null,chip:null,ctl:null,hidden:0,ev:[],d:{}};H=[]}
+function reset(){S={pins:null,kind:null,conf:2,conn:null,volt:null,vsrc:'',white:null,lab:null,chip:null,ctl:null,hidden:0,cc:null,ev:[],d:{}};H=[]}
 function ev(t){S.ev.push(t)}
 function setV(v,src){S.volt=v;S.vsrc=src;ev(src)}
 
@@ -71,13 +71,13 @@ var CH={
 };
 var TY={
  single:{t:'Single-colour strip',tag:'Standard (not addressable)',w:'Every LED shows the same one colour, such as white, warm white or red. The two connections are plus (+) and minus (\u2212).',c:['Turn it on and off','Dim it with a dimmer','Cut it at the marked lines'],n:['A power supply that matches the voltage','A single-colour dimmer, or just a switch'],x:'Polarity matters: plus to plus, minus to minus.'},
- rgb:{t:'RGB colour strip (4-pin)',tag:'Standard (not addressable)',w:'Has red, green and blue channels plus a shared plus (+) wire. The whole strip shows one colour at a time, but it can be any colour.',c:['Any colour, with fades and flash modes from a remote or app','Cut at marked lines'],n:['An RGB (4-pin) controller for your voltage','A matching power supply'],x:'Do not plug this into a controller made for "pixel" or "addressable" strips.'},
+ rgb:{t:'RGB colour strip (4-pin)',tag:'Standard (not addressable)',w:'Has red, green and blue channels plus a shared plus (+) wire. The whole strip shows one colour at a time, but it can be any colour.',c:['Any colour, with fades and flash modes from a remote or app','Cut at marked lines','If colours come out swapped (red shows green), the strip is probably G R B order. Swap the colour wires or change the colour order setting.'],n:['An RGB (4-pin) controller for your voltage','A matching power supply'],x:'Do not plug this into a controller made for "pixel" or "addressable" strips.'},
  rgbw:{t:'RGBW strip (5-pin)',tag:'Standard (not addressable)',w:'Red, green, blue and a separate white LED. The whole strip shows one colour at a time.',c:['Any colour plus a cleaner white','Colour and white at the same time'],n:['An RGBW (5-pin) controller','A matching power supply'],x:'A plain RGB controller cannot drive the white LEDs.'},
  rgbcct:{t:'RGB + CCT strip (6-pin)',tag:'Standard (not addressable)',w:'Red, green, blue, plus separate warm white and cool white LEDs.',c:['Any colour','White from cosy to daylight','Mix colour and white'],n:['An RGBCCT (5-channel) controller','A matching power supply'],x:'RGB, RGBW and dual-white controllers will not fit.'},
  cct:{t:'Dual-white strip (3-pin)',tag:'Standard (not addressable)',w:'Warm white and cool white LEDs sharing a plus (+) wire. No colours, but the white can be adjusted.',c:['Slide between warm and cool white','Dim the brightness'],n:['A dual-white (CCT) controller or dimmer','A matching power supply'],x:'It looks like a 3-pin pixel strip, but a pixel controller will not run it.'}
 };
 var VT={'5V':'5V is low and safe, and is often powered from USB or a phone-style charger.','12V':'12V is the most common for home lighting. Use a 12V DC power supply.','24V':'24V suits long runs. Use a 24V DC supply. A 12V one gives a dim strip.'};
-var CN={usb:'USB-A means 5V. Any USB charger or power bank works, within its amp rating. Many strips draw 2 A or more.',usbc:'USB-C is usually 5V for LED strips, but USB-C chargers can negotiate higher voltages (PD). Use a plain 5V charger, not a fast-charge one, unless you know the strip is rated for it.',barrel:'A DC barrel jack (often 5.5 × 2.1 mm, sometimes 5.5 × 2.5 mm) usually means 12V, but 5V and 24V adapters use the same plug. Always read the adapter label.',jst:'A small white plug (often called JST-SM) is only a connector. It does not tell you the voltage. Matching pairs let you extend the strip without soldering.',clip:'A hinged clip connector grips the copper pads. Match the strip width (often 8mm or 10mm) and the pin count when buying more.',box:'There is a box in the line. A chip can live in the box instead of on the strip, so a chip name printed on the strip may not tell the whole story. Check the box label, and any extra chip or board in the line.',bare:'Bare pads mean you will need to solder, or buy clip-on connectors that match your pad count and strip width.'};
+var CN={usb:'USB-A means 5V. Any USB charger or power bank works, within its amp rating. Many strips draw 2 A or more.',usbc:'USB-C is usually 5V for LED strips, but USB-C chargers can negotiate higher voltages (PD). Use a plain 5V charger, not a fast-charge one, unless you know the strip is rated for it.',barrel:'A DC barrel jack (often 5.5 × 2.1 mm, sometimes 5.5 × 2.5 mm) usually means 12V, but 5V and 24V adapters use the same plug. Always read the adapter label.',jst:'A small plastic plug, usually white or black (often called JST-SM), is only a connector. It does not tell you the voltage. Matching pairs let you extend the strip without soldering.',clip:'A hinged clip connector grips the copper pads. Match the strip width (often 8mm or 10mm) and the pin count when buying more.',box:'There is a box in the line. A chip can live in the box instead of on the strip, so a chip name printed on the strip may not tell the whole story. Check the box label, and any extra chip or board in the line.',bare:'Bare pads mean you will need to solder, or buy clip-on connectors that match your pad count and strip width.'};
 
 function opt(a,b,f,s){return{a:a,b:b,f:f,s:s}}
 function num(a,b,f){return{a:a,b:b,f:f,n:1}}
@@ -88,12 +88,12 @@ var Q=[
  opt('Small arrows are printed between the LEDs','The arrows point along the strip',function(){S.kind='pix';ev('Arrows on the strip')}),
  opt('It can show different colours in different places','Rainbows or colours that chase along it, or it was sold as "pixel" or "dream colour"',function(){S.kind='pix';ev('Different colours at once')}),
  opt('Only warm white and cool white','Two kinds of LED alternate, one yellowish, one bluish',function(){S.kind='cct';ev('Warm and cool white only')},function(){return S.pins==3}),
- opt('The whole strip is one colour at a time','No arrows and no effects along the strip',function(){S.kind='rgb';ev('Whole strip one colour')},function(){return S.pins==4}),
+ opt('The whole strip is one colour at a time','No arrows and no effects. Pads read like V+ R G B or V+ G R B',function(){S.kind='rgb';ev('Whole strip one colour')},function(){return S.pins==4}),
  opt("I'm not sure","We'll make a best guess",function(){S.kind=S.pins==3?'pix':'rgb';S.conf=1;ev('Could not tell pixel from standard')})]},
 {id:'conn',when:function(){return S.pins>0},t:'What is at the end of the strip?',h:'Whatever the strip plugs into or comes with. Pick the closest.',o:[
  opt('USB-A plug','The classic flat rectangular USB plug',function(){S.conn='usb';setV('5V','USB-A plug, so 5V')}),opt('USB-C plug','The small oval, reversible plug',function(){S.conn='usbc';setV('5V','USB-C plug, so most likely 5V')}),
  opt('DC barrel jack','Round plug, commonly 5.5 × 2.1 mm, from a wall adapter',function(){S.conn='barrel';ev('DC barrel jack')}),opt('AC mains plug','The strip itself plugs straight into a wall socket',function(){S.conn='ac';setV('AC','AC mains plug')}),
- opt('JST-SM style plug','Small white plastic plug, 2 to 4 pins',function(){S.conn='jst';ev('Small white plug')}),
+ opt('JST-SM style plug','Small plastic plug, usually white or black, 2 to 4 pins',function(){S.conn='jst';ev('JST-SM style plug')}),
  opt('Solderless clip connector','Hinged clip over the copper pads, 8 mm or 10 mm wide',function(){S.conn='clip';ev('Clip connector')}),
  opt('A small box in the line','Controller, remote receiver or driver',function(){S.conn='box';ev('Box in the line')}),
  opt('Bare pads or loose wires','No plug at all',function(){S.conn='bare';ev('No plug')})]},
@@ -110,7 +110,8 @@ var Q=[
 {id:'chip',when:function(){return S.kind=='pix'},t:'Do you know the chip name?',h:'Optional. It might be on the strip, the box, the listing, or a small circuit board in the line. If not, choose "No idea" and we will work it out from your answers.',o:[
  opt('WS2812B','',function(){S.chip='WS2812B'},function(){return S.pins==3}),opt('SK6812','',function(){S.chip='SK6812'},function(){return S.pins==3}),opt('WS2811','',function(){S.chip='WS2811'},function(){return S.pins==3}),
  opt('WS2813','',function(){S.chip='WS2813'},function(){return S.pins==4}),opt('WS2815','',function(){S.chip='WS2815'},function(){return S.pins==4}),opt('APA102 or SK9822','',function(){S.chip='APA102'},function(){return S.pins==4}),
- opt('No idea','Work it out for me',function(){})]}
+ opt('No idea','Work it out for me',function(){})]},
+{id:'cc',when:function(){return S.pins>2&&S.kind!='pix'},t:'Which label is on the shared pad?',h:'Standard strips have one shared connection that every colour uses. It is almost always plus, shown as + or V+ or the voltage such as 12V. A few are shared minus.',o:[opt('Plus: +, V+, 12V, 24V or 5V','The most common. Often written V+ R G B or V+ G R B',function(){S.cc='a';ev('Shared plus (common anode)')}),opt('Minus: -, V-, GND or COM','Uncommon. Often written GND R G B or - R G B',function(){S.cc='k';ev('Shared minus (common cathode)')}),opt('Not sure','We will assume plus',function(){S.cc='?'})]}
 ];
 
 function pads(n){var w=n*44+16,o='<svg class="pads" viewBox="0 0 '+w+' 70" width="'+Math.min(w,300)+'" role="img" aria-label="'+n+' pads"><rect x="2" y="8" width="'+(w-4)+'" height="54" rx="10" fill="none" stroke="currentColor" stroke-opacity=".3" stroke-width="2"/>';
@@ -176,7 +177,7 @@ function more(k,v,p,ch,conf){var h='',pix=k=='pix',td=[];
  if(td.length&&conf<3)h+='<h3>To be more sure</h3>'+list(td);
  if(S.hidden||conf<2)h+='<h3>Markings worth looking for</h3>'+list(MK);
  if(pix&&S.ctl&&S.ctl!='none')h+='<div class="warn"><b>Good news:</b> pixel strips are often sold with a basic controller that only shows one colour or preset effects, or is locked to an app. The strip can do much more. Swapping the controller for WLED or ESPHome, and keeping your strip and power supply, unlocks per-LED control.</div>';
- return h+'<h3>What you could use</h3><ul>'+recs(k,v,p,ch).map(function(x){return'<li><b>'+x[0]+':</b> '+x[1]+'</li>'}).join('')+'</ul>'}
+ h+=inv(k);return h+'<h3>What you could use</h3><ul>'+recs(k,v,p,ch).map(function(x){return'<li><b>'+x[0]+':</b> '+x[1]+'</li>'}).join('')+'</ul>'}
 function recs(k,v,p,ch){var pix=k=='pix',r=[],w=pix?'a 60 LED per metre pixel strip can draw about 18 W per metre at full white':'5050 colour strips use roughly 7 to 14 W per metre, simpler strips often less';
  r.push(['Power supply','A regulated '+(v||'matching')+' DC supply. Add 20% headroom: watts = W per metre × length × 1.2. As a guide, '+w+'. Check the listing for the real figure.'+(v=='5V'?' For short runs, a USB-A or USB-C charger that supplies 5V at 2 A or more works, and one port can often power the controller too.':'')+(v=='24V'?' Check that any controller you pick is rated for 24V.':'')]);
  if(pix){r.push(['WLED','Free firmware for an ESP32 or ESP8266 board, with a web page, phone app, 100+ effects and per-LED control. Works with Home Assistant, Alexa and Google Home. The easiest way to unlock a pixel strip.']);
@@ -188,6 +189,13 @@ function recs(k,v,p,ch){var pix=k=='pix',r=[],w=pix?'a 60 LED per metre pixel st
  r.push(['Relays and switching','A relay (or MOSFET) on the DC side switches the strip off completely. '+(pix?'Pixel strips keep drawing a small standby current even when off, so a relay on the supply saves power. ':'A relay only gives on and off, not dimming. ')+'For mains, use a ready-made smart plug or a relay module rated for the load.']);
  r.push(['Extras',pix?'A 1000 µF capacitor across power at the strip start, a 330 to 470 Ω resistor in the data line, a 3.3V to 5V level shifter when using an ESP32, a fuse on the supply, and power fed in at both ends of long strips.':'A fuse on the supply, wire thick enough for the current (long runs lose voltage), and an aluminium channel for bright strips.']);
  return r}
+function inv(k){var pix=k=='pix',L,v,t;
+ if(pix){v='Not normally. Pixel strips expect normal (non-inverted) data.';L=[['Data line','Normal polarity. Only invert if something between the controller and the strip flips it, such as a single transistor, a 74HC04 or 74HC14, or an optocoupler.']];t='If nothing lights, or you see random colours, check data polarity, timing and that grounds are joined.'}
+ else if(S.pins>2){if(S.cc=='k'){v='No. This strip expects a normal signal.';L=[['Shared GND (common cathode)','Voltage on a colour pad lights that colour, so the signal is normal. It needs a controller that outputs voltage on the colour pads (high-side). A controller made for shared V+ strips will not work.']]}
+  else{v='Yes. This strip expects an inverted signal.';L=[['Shared V+ (common anode)','A colour lights when its pad is pulled to ground, so each pad is active-low. A low-side N-channel MOSFET board already does this inversion in hardware, so the firmware stays normal. If a pad is wired straight to an output pin, invert that output.'+(S.cc=='?'?' You were not sure, but almost all strips are shared V+.':'')]]}
+  t='If the strip is fully on at 0% and dim at 100%, the signal is the wrong way round. Flip the invert option in your firmware.'}
+ else return '';
+ return '<h3>Will you need inverted signals?</h3><p>'+v+'</p>'+list(L.map(function(x){return '<b>'+x[0]+':</b> '+x[1]}))+'<h3>How to test it</h3>'+list([t,'In WLED look for an invert option on the output. In ESPHome set inverted: true on the pin. Names vary by firmware version, so check its docs.'])}
 reset();render();
 </script>
 </body>
